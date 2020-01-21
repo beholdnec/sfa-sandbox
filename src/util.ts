@@ -132,6 +132,14 @@ export class StreamDataView {
     }
 }
 
+export function dataViewToArrayBuffer(dataView: DataView): ArrayBuffer {
+    return dataView.buffer.slice(dataView.byteOffset, dataView.byteOffset + dataView.byteLength)
+}
+
+export function dataViewToU8Array(dataView: DataView): Uint8Array {
+    return new Uint8Array(dataViewToArrayBuffer(dataView))
+}
+
 export function jsonify(value: any): string {
     return JSON.stringify(value,
         (key: string, value: any) => {
