@@ -1,0 +1,17 @@
+{
+    "name": "sfa-sandbox",
+    "version": "0.0.1",
+    "description": "Tools for examining SFA resource files",
+    "author": "n.e.c.",
+    "license": "ISC",
+    "private": true,
+    "scripts": {
+        "build": "webpack --mode=development"
+    },
+    "devDependencies": {
+        "ts-loader": "^6.1.1",
+        "typescript": "^3.6.3",
+        "webpack": "^4.40.2",
+        "webpack-cli": "^3.3.9"
+    }
+}
