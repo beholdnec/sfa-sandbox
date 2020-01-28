@@ -22,6 +22,18 @@ export function readBlobAsync(blob: Blob): Promise<DataView> {
     })
 }
 
+// Eat your heart out, npm.
+export function leftPad(S: string, spaces: number, ch: string = '0'): string {
+    while (S.length < spaces)
+        S = `${ch}${S}`;
+    return S;
+}
+
+export function hexzero(n: number, spaces: number): string {
+    let S = n.toString(16);
+    return leftPad(S, spaces);
+}
+
 export class StreamDataView {
     dv: DataView
     cursor: number

@@ -1,4 +1,4 @@
-import { readBlobAsync, StreamDataView, jsonify, sliceBlob, stringToFourCC, dataViewToU8Array } from './util'
+import { readBlobAsync, hexzero, StreamDataView, jsonify, sliceBlob, stringToFourCC, dataViewToU8Array } from './util'
 import * as pako from 'pako'
 
 console.log('Hello, World!')
@@ -19,20 +19,34 @@ class ZLBHeader {
     }
 }
 
-async function openFile(blob: File) {
-    const headerBlob = sliceBlob(blob, 0, ZLBHeader.SIZE)
-    const headerDv = await readBlobAsync(headerBlob)
-
-    const header = new ZLBHeader(new StreamDataView(headerDv))
-    console.log(`Header: ${jsonify(header)}`)
+function loadZLB(dv: DataView): ArrayBuffer {
+    let offs = 0;
+    const header = new ZLBHeader(new StreamDataView(dv));
+    offs += ZLBHeader.SIZE;
 
     if (header.magic != stringToFourCC('ZLB\0')) {
-        throw Error(`Invalid magic identifier`)
+        throw Error(`Invalid magic identifier 0x${hexzero(header.magic, 8)}`);
     }
 
-    const zlbBlob = sliceBlob(blob, ZLBHeader.SIZE, header.size)
-    const zlbDv = await readBlobAsync(zlbBlob)
-    const uncompressed = <Uint8Array>pako.inflate(dataViewToU8Array(zlbDv))
+    return pako.inflate(new Uint8Array(dv.buffer.slice(offs, offs + header.size))).buffer;
+}
+
+async function openFile(blob: File) {
+    const data = await readBlobAsync(blob)
+
+    const magic = data.getUint32(0)
+    let uncompressed: ArrayBuffer
+    switch (magic) {
+    case stringToFourCC('ZLB\0'):
+        uncompressed = loadZLB(data)
+        break
+    case 0xFACEFEED:
+        // uncompressed = loadZLB(new DataView(data.buffer.slice(0x24)))
+        uncompressed = loadZLB(new DataView(data.buffer.slice(0x164)))
+        break
+    default:
+        throw Error(`Unhandled magic identifier 0x${hexzero(magic, 8)}`)
+    }
 
     const aEl = document.createElement('a')
     const downloadLinksEl = document.getElementById('download-links')!
@@ -41,7 +55,7 @@ async function openFile(blob: File) {
     aEl.download = `${blob.name}.dec.bin`
     aEl.append('Download')
 
-    const sdv = new StreamDataView(new DataView(uncompressed.buffer))
+    const sdv = new StreamDataView(new DataView(uncompressed))
     sdv.setCursor(0x54)
     const texOffset = sdv.getNextUint32()
     sdv.setCursor(0xA0)
