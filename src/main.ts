@@ -218,10 +218,7 @@ fileInputEl.onchange = function (event) {
     }
 }
 
-let texTabFile: File | null = null;
-let texBinFile: File | null = null;
-
-function loadTexture(data: DataView, srcOffs: number): HTMLCanvasElement {
+function loadN64Texture(data: DataView, srcOffs: number): HTMLCanvasElement {
     const canvasEl = document.createElement('canvas')
     console.log(`data length 0x${data.byteLength.toString(16)} srcOffs 0x${srcOffs.toString(16)}`)
 
@@ -269,31 +266,15 @@ function loadTexture(data: DataView, srcOffs: number): HTMLCanvasElement {
     return canvasEl
 }
 
-const texTabEl = <HTMLInputElement>document.getElementById('tex-tab')!
-texTabEl.onchange = function (event) {
-    if (texTabEl.files) {
-        texTabFile = texTabEl.files[0]
-        openTextures()
-    }
-}
-
-const texBinEl = <HTMLInputElement>document.getElementById('tex-bin')!
-texBinEl.onchange = function (event) {
-    if (texBinEl.files) {
-        texBinFile = texBinEl.files[0]
-        openTextures()
-    }
-}
-
-async function openTextures() {
-    if (texTabEl.files!.length <= 0 || texBinEl.files!.length <= 0) {
+async function openN64Textures() {
+    if (n64TexTabEl.files!.length <= 0 || n64TexBinEl.files!.length <= 0) {
         return
     }
 
     console.log(`Loading textures...`)
 
-    const texTab = await readBlobAsync(texTabEl.files![0])
-    const texBin = await readBlobAsync(texBinEl.files![0])
+    const texTab = await readBlobAsync(n64TexTabEl.files![0])
+    const texBin = await readBlobAsync(n64TexBinEl.files![0])
 
     const texturesEl = document.getElementById('textures')!
     let done = false
@@ -305,9 +286,17 @@ async function openTextures() {
             break
         }
 
-        const canvasEl = loadTexture(texBin, tabValue)
+        const canvasEl = loadN64Texture(texBin, tabValue)
         texturesEl.appendChild(canvasEl)
     }
 }
 
-openTextures()
+const n64TexTabEl = <HTMLInputElement>document.getElementById('n64-tex-tab')!
+n64TexTabEl.onchange = async function (event) {
+    await openN64Textures()
+}
+
+const n64TexBinEl = <HTMLInputElement>document.getElementById('n64-tex-bin')!
+n64TexBinEl.onchange = async function (event) {
+    await openN64Textures()
+}
