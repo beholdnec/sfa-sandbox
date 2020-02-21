@@ -66,7 +66,7 @@ async function openFile(blob: File) {
 async function loadRawZLB(blob: File, offs: number, size: number) {
     const data = await readBlobAsync(blob)
 
-    const uncompressed = pako.inflate(new Uint8Array(data.buffer.slice(offs, offs + size)), {raw: true}).buffer
+    const uncompressed = pako.inflate(new Uint8Array(data.buffer.slice(offs, offs + size))).buffer
 
     const aEl = document.createElement('a')
     const downloadLinksEl = document.getElementById('download-links')!
@@ -81,7 +81,7 @@ fileInputEl.onchange = function (event) {
     if (fileInputEl.files) {
         const file = fileInputEl.files[0]
         console.log(`Loading file ${file.name} ...`)
-        loadRawZLB(file, 6, 0x4730 - 6)
+        loadRawZLB(file, 16, 0x4730 - 16)
         // openFile(file)
     }
 }
