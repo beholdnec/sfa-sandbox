@@ -1,3 +1,22 @@
+export function assert(b: boolean, message: string = ""): asserts b {
+    if (!b) {
+        console.error(new Error().stack);
+        throw new Error(`Assert fail: ${message}`);
+    }
+}
+
+export function assertExists<T>(v: T | null | undefined): T {
+    if (v !== undefined && v !== null)
+        return v;
+    else
+        throw new Error("Missing object");
+}
+
+// Requires that multiple is a power of two.
+export function align(n: number, multiple: number): number {
+    const mask = (multiple - 1);
+    return (n + mask) & ~mask;
+}
 
 export function sliceBlob(blob: Blob, start: number, length?: number): Blob {
     if (length !== undefined) {

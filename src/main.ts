@@ -1,6 +1,8 @@
 import { readBlobAsync, hexzero, StreamDataView, jsonify, sliceBlob, stringToFourCC, dataViewToU8Array } from './util'
 import * as pako from 'pako'
 import { decodeTex_I4, decodeTex_I8, decodeTex_IA16, decodeTex_RGBA16, decodeTex_RGBA32 } from './n64-texture'
+import { TextureInputGX, decodeTexture } from './gx_texture'
+import ArrayBufferSlice from './ArrayBufferSlice'
 
 console.log('Hello, World!')
 
@@ -309,7 +311,7 @@ n64TexBinEl.onchange = async function (event) {
     await openN64Textures()
 }
 
-function loadGXTexture(data: DataView, srcOffs: number): HTMLCanvasElement {
+async function loadGXTexture(data: DataView, srcOffs: number): Promise<HTMLCanvasElement> {
     const canvasEl = document.createElement('canvas')
     console.log(`data length 0x${data.byteLength.toString(16)} srcOffs 0x${srcOffs.toString(16)}`)
 
@@ -324,9 +326,19 @@ function loadGXTexture(data: DataView, srcOffs: number): HTMLCanvasElement {
     canvasEl.height = header.height
 
     const ctx = canvasEl.getContext('2d')!
-    const imageData = ctx.createImageData(header.width, header.height)
-    const pixels = new Uint8Array(imageData.data.buffer)
     const dataOffset = srcOffs + 0x60
+    const texData = sliceDataView(data, dataOffset)
+    const textureInput: TextureInputGX = {
+        name: 'Texture',
+        width: header.width,
+        height: header.height,
+        format: header.format,
+        mipCount: 1,
+        data: new ArrayBufferSlice(texData.buffer, texData.byteOffset, texData.byteLength)
+    }
+    const decodedTexture = await decodeTexture(textureInput)
+    const imageData = new ImageData(new Uint8ClampedArray(decodedTexture.pixels.buffer), header.width, header.height)
+
     ctx.putImageData(imageData, 0, 0)
 
     return canvasEl
@@ -373,9 +385,14 @@ async function openGXTextures() {
 
         if (isValidTextureTabValue(tabValue)) {
             const srcOffs = (tabValue & 0x00FFFFFF) * 2
-            const uncomp = loadRes(texBin, srcOffs)
-            const canvasEl = loadGXTexture(uncomp, 0)
-            texturesEl.appendChild(canvasEl)
+            try {
+                const uncomp = loadRes(texBin, srcOffs)
+                const canvasEl = await loadGXTexture(uncomp, 0)
+                texturesEl.appendChild(canvasEl)
+            } catch (e) {
+                console.log(`Skipping texture at 0x${srcOffs.toString(16)} due to exception:`)
+                console.error(e)
+            }
         }
     }
 }
