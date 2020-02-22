@@ -20,6 +20,15 @@ class ZLBHeader {
     }
 }
 
+function sliceDataView(data: DataView, byteOffset: number, byteLength?: number): DataView {
+    return new DataView(data.buffer, data.byteOffset + byteOffset, byteLength)
+}
+
+function loadDIRn(data: DataView, srcOffs: number): DataView {
+    const size = data.getUint32(srcOffs + 8);
+    return sliceDataView(data, srcOffs + 0x20, size)
+}
+
 function loadZLB(dv: DataView, offs: number): ArrayBuffer {
     const sdv = new StreamDataView(dv)
     sdv.setCursor(offs)
@@ -34,9 +43,8 @@ function loadZLB(dv: DataView, offs: number): ArrayBuffer {
 }
 
 // Reference: <https://www.kernel.org/doc/Documentation/lzo.txt>
-function loadLZOn(data: ArrayBuffer, srcOffs: number): ArrayBuffer {
-    const dv = new DataView(data)
-    const uncompSize = dv.getUint32(srcOffs + 0x8)
+function loadLZOn(data: DataView, srcOffs: number): ArrayBuffer {
+    const uncompSize = data.getUint32(srcOffs + 0x8)
     srcOffs += 0x10
     let dstOffs = 0;
     const dst = new Uint8Array(uncompSize);
@@ -46,30 +54,30 @@ function loadLZOn(data: ArrayBuffer, srcOffs: number): ArrayBuffer {
         let length = code & mask;
         if (length == 0) {
             length = mask;
-            while (dv.getUint8(srcOffs) == 0) {
+            while (data.getUint8(srcOffs) == 0) {
                 length += 255;
                 srcOffs++;
             }
-            length += dv.getUint8(srcOffs++);
+            length += data.getUint8(srcOffs++);
         }
         return length;
     }
 
     let state = 0;
-    const firstByte = dv.getUint8(srcOffs++);
+    const firstByte = data.getUint8(srcOffs++);
     if (firstByte >= 0 && firstByte <= 16) {
         // state 0 literal
         let length = getLength(firstByte, 4) + 3;
         state = 4;
         for (let i = 0; i < length; i++) {
-            dst[dstOffs++] = dv.getUint8(srcOffs++);
+            dst[dstOffs++] = data.getUint8(srcOffs++);
         }
     } else if (firstByte == 17) {
         throw Error(`RLE encoding mode not implemented`);
     } else if (firstByte >= 18 && firstByte <= 21) {
         state = firstByte - 17;
         for (let i = 0; i < state; i++) {
-            dst[dstOffs++] = dv.getUint8(srcOffs++);
+            dst[dstOffs++] = data.getUint8(srcOffs++);
         }
         // srcOffs++; // Skip byte (FIXME: really?)
     } else {
@@ -77,21 +85,21 @@ function loadLZOn(data: ArrayBuffer, srcOffs: number): ArrayBuffer {
     }
 
     while (dstOffs < uncompSize) {
-        const byte = dv.getUint8(srcOffs++);
+        const byte = data.getUint8(srcOffs++);
         if (byte >= 128) {
             const s = byte & 0x3;
             state = s;
             const d = (byte >> 2) & 0x7;
             const l = (byte >> 5) & 0x3;
             const length = 5 + l;
-            const h = dv.getUint8(srcOffs++);
+            const h = data.getUint8(srcOffs++);
             const distance = (h << 3) + d + 1;
             let msrc = dstOffs - distance;
             for (let i = 0; i < length; i++) {
                 dst[dstOffs++] = dst[msrc++];
             }
             for (let i = 0; i < s; i++) {
-                dst[dstOffs++] = dv.getUint8(srcOffs++);
+                dst[dstOffs++] = data.getUint8(srcOffs++);
             }
         } else if (byte >= 64) {
             const l = (byte >> 5) & 0x1;
@@ -99,19 +107,19 @@ function loadLZOn(data: ArrayBuffer, srcOffs: number): ArrayBuffer {
             const s = byte & 0x3;
             state = s;
             const length = 3 + l;
-            const h = dv.getUint8(srcOffs++);
+            const h = data.getUint8(srcOffs++);
             const distance = (h << 3) + d + 1;
             let msrc = dstOffs - distance;
             for (let i = 0; i < length; i++) {
                 dst[dstOffs++] = dst[msrc++];
             }
             for (let i = 0; i < s; i++) {
-                dst[dstOffs++] = dv.getUint8(srcOffs++);
+                dst[dstOffs++] = data.getUint8(srcOffs++);
             }
         } else if (byte >= 32) {
             const length = getLength(byte, 5) + 2;
-            const d = dv.getUint16(srcOffs, true) >> 2;
-            const s = dv.getUint16(srcOffs, true) & 0x3;
+            const d = data.getUint16(srcOffs, true) >> 2;
+            const s = data.getUint16(srcOffs, true) & 0x3;
             srcOffs += 2;
             const distance = d + 1;
             state = s;
@@ -120,13 +128,13 @@ function loadLZOn(data: ArrayBuffer, srcOffs: number): ArrayBuffer {
                 dst[dstOffs++] = dst[msrc++];
             }
             for (let i = 0; i < s; i++) {
-                dst[dstOffs++] = dv.getUint8(srcOffs++);
+                dst[dstOffs++] = data.getUint8(srcOffs++);
             }
         } else if (byte >= 16) {
             const length = getLength(byte, 3) + 2;
             const h = (byte >> 3) & 0x1;
-            const d = dv.getUint16(srcOffs, true) >> 2;
-            const s = dv.getUint16(srcOffs, true) & 0x3;
+            const d = data.getUint16(srcOffs, true) >> 2;
+            const s = data.getUint16(srcOffs, true) & 0x3;
             srcOffs += 2;
             const distance = 16384 + (h << 14) + d;
             state = s;
@@ -139,42 +147,42 @@ function loadLZOn(data: ArrayBuffer, srcOffs: number): ArrayBuffer {
                 dst[dstOffs++] = dst[msrc++];
             }
             for (let i = 0; i < s; i++) {
-                dst[dstOffs++] = dv.getUint8(srcOffs++);
+                dst[dstOffs++] = data.getUint8(srcOffs++);
             }
         } else {
             if (state == 0) {
                 const length = getLength(byte, 4) + 3;
                 state = 4;
                 for (let i = 0; i < length; i++) {
-                    dst[dstOffs++] = dv.getUint8(srcOffs++);
+                    dst[dstOffs++] = data.getUint8(srcOffs++);
                 }
             } else if (state >= 1 && state <= 3) {
                 const s = byte & 0x3;
                 const d = (byte >> 2) & 0x3;
                 const length = 2;
                 state = s;
-                const h = dv.getUint8(srcOffs++);
+                const h = data.getUint8(srcOffs++);
                 const distance = (h << 2) + d + 1;
                 let msrc = dstOffs - distance;
                 for (let i = 0; i < length; i++) {
                     dst[dstOffs++] = dst[msrc++];
                 }
                 for (let i = 0; i < s; i++) {
-                    dst[dstOffs++] = dv.getUint8(srcOffs++);
+                    dst[dstOffs++] = data.getUint8(srcOffs++);
                 }
             } else if (state == 4) {
                 const s = byte & 0x3;
                 state = s;
                 const length = 3;
                 const d = byte >> 2;
-                const h = dv.getUint8(srcOffs++);
+                const h = data.getUint8(srcOffs++);
                 const distance = (h << 2) + d + 2049;
                 let msrc = dstOffs - distance;
                 for (let i = 0; i < length; i++) {
                     dst[dstOffs++] = dst[msrc++];
                 }
                 for (let i = 0; i < s; i++) {
-                    dst[dstOffs++] = dv.getUint8(srcOffs++);
+                    dst[dstOffs++] = data.getUint8(srcOffs++);
                 }
             }
         }
@@ -195,7 +203,7 @@ async function openFile(blob: File) {
         break
     case stringToFourCC('LZOn'):
         console.log(`Decompressing LZO...`);
-        uncompressed = loadLZOn(data.buffer, offs)
+        uncompressed = loadLZOn(data, offs)
         break
     default:
         throw Error(`Unhandled magic identifier 0x${hexzero(magic, 8)}`)
@@ -271,7 +279,7 @@ async function openN64Textures() {
         return
     }
 
-    console.log(`Loading textures...`)
+    console.log(`Loading N64 textures...`)
 
     const texTab = await readBlobAsync(n64TexTabEl.files![0])
     const texBin = await readBlobAsync(n64TexBinEl.files![0])
@@ -299,4 +307,85 @@ n64TexTabEl.onchange = async function (event) {
 const n64TexBinEl = <HTMLInputElement>document.getElementById('n64-tex-bin')!
 n64TexBinEl.onchange = async function (event) {
     await openN64Textures()
+}
+
+function loadGXTexture(data: DataView, srcOffs: number): HTMLCanvasElement {
+    const canvasEl = document.createElement('canvas')
+    console.log(`data length 0x${data.byteLength.toString(16)} srcOffs 0x${srcOffs.toString(16)}`)
+
+    const header = {
+        width: data.getUint16(srcOffs + 0xa),
+        height: data.getUint16(srcOffs + 0xc),
+        format: data.getUint8(srcOffs + 0x16),
+    }
+    console.log(`gx texture header: ${jsonify(header)}`)
+
+    canvasEl.width = header.width
+    canvasEl.height = header.height
+
+    const ctx = canvasEl.getContext('2d')!
+    const imageData = ctx.createImageData(header.width, header.height)
+    const pixels = new Uint8Array(imageData.data.buffer)
+    const dataOffset = srcOffs + 0x60
+    ctx.putImageData(imageData, 0, 0)
+
+    return canvasEl
+}
+
+function loadRes(data: DataView, srcOffs: number): DataView {
+    const magic = data.getUint32(srcOffs);
+    switch (magic) {
+    case stringToFourCC('ZLB\0'):
+        return new DataView(loadZLB(data, srcOffs));
+    case stringToFourCC('DIRn'): // FIXME: actually just "DIR"
+        return loadDIRn(data, srcOffs);
+    case stringToFourCC('LZOn'):
+        return new DataView(loadLZOn(data, srcOffs));
+    default:
+        console.warn(`Invalid magic identifier 0x${hexzero(magic, 8)}`);
+        return data;
+    }
+}
+
+function isValidTextureTabValue(tabValue: number) {
+    return tabValue != 0xFFFFFFFF && (tabValue & 0x80000000) != 0;
+}
+
+async function openGXTextures() {
+    if (gxTexTabEl.files!.length <= 0 || gxTexBinEl.files!.length <= 0) {
+        return
+    }
+
+    console.log(`Loading GX textures...`)
+
+    const texTab = await readBlobAsync(gxTexTabEl.files![0])
+    const texBin = await readBlobAsync(gxTexBinEl.files![0])
+
+    const texturesEl = document.getElementById('textures')!
+    let done = false
+    let tabOffs = 0
+    while (!done) {
+        const tabValue = texTab.getUint32(tabOffs)
+        tabOffs += 4
+        if (tabValue == 0xFFFFFFFF) {
+            break
+        }
+
+        if (isValidTextureTabValue(tabValue)) {
+            const srcOffs = (tabValue & 0x00FFFFFF) * 2
+            const uncomp = loadRes(texBin, srcOffs)
+            const canvasEl = loadGXTexture(uncomp, 0)
+            texturesEl.appendChild(canvasEl)
+        }
+    }
+}
+
+const gxTexTabEl = <HTMLInputElement>document.getElementById('gx-tex-tab')!
+gxTexTabEl.onchange = async function (event) {
+    await openGXTextures()
+}
+
+const gxTexBinEl = <HTMLInputElement>document.getElementById('gx-tex-bin')!
+gxTexBinEl.onchange = async function (event) {
+    await openGXTextures()
 }
