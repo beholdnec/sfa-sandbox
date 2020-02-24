@@ -1,7 +1,7 @@
 import { readBlobAsync, hexzero, StreamDataView, jsonify, sliceBlob, stringToFourCC, dataViewToU8Array } from './util'
 import * as pako from 'pako'
 import { decodeTex_I4, decodeTex_I8, decodeTex_IA16, decodeTex_RGBA16, decodeTex_RGBA32 } from './n64-texture'
-import { TextureInputGX, decodeTexture } from './gx_texture'
+import { TextureInputGX, decodeTexture, calcMipChain } from './gx_texture'
 import ArrayBufferSlice from './ArrayBufferSlice'
 
 console.log('Hello, World!')
@@ -22,13 +22,13 @@ class ZLBHeader {
     }
 }
 
-function sliceDataView(data: DataView, byteOffset: number, byteLength?: number): DataView {
+function subarrayData(data: DataView, byteOffset: number, byteLength?: number): DataView {
     return new DataView(data.buffer, data.byteOffset + byteOffset, byteLength)
 }
 
 function loadDIRn(data: DataView, srcOffs: number): DataView {
     const size = data.getUint32(srcOffs + 8);
-    return sliceDataView(data, srcOffs + 0x20, size)
+    return subarrayData(data, srcOffs + 0x20, size)
 }
 
 function loadZLB(dv: DataView, offs: number): ArrayBuffer {
@@ -193,6 +193,14 @@ function loadLZOn(data: DataView, srcOffs: number): ArrayBuffer {
     return dst.buffer;
 }
 
+function makeDownloadLink(data: DataView, filename: string, text: string): HTMLElement {
+    const aEl = document.createElement('a')
+    aEl.href = URL.createObjectURL(new Blob([data], {type: 'application/octet-stream'}))
+    aEl.download = filename
+    aEl.append(text)
+    return aEl
+}
+
 async function openFile(blob: File) {
     const data = await readBlobAsync(blob)
 
@@ -211,12 +219,9 @@ async function openFile(blob: File) {
         throw Error(`Unhandled magic identifier 0x${hexzero(magic, 8)}`)
     }
 
-    const aEl = document.createElement('a')
+    const aEl = makeDownloadLink(new DataView(uncompressed), `${blob.name}.dec.bin`, 'Download')
     const downloadLinksEl = document.getElementById('download-links')!
     downloadLinksEl.appendChild(aEl)
-    aEl.href = URL.createObjectURL(new Blob([uncompressed], {type: 'application/octet-stream'}))
-    aEl.download = `${blob.name}.dec.bin`
-    aEl.append('Download')
 }
 
 const fileInputEl = <HTMLInputElement>document.getElementById('file-input')
@@ -311,37 +316,44 @@ n64TexBinEl.onchange = async function (event) {
     await openN64Textures()
 }
 
-async function loadGXTexture(data: DataView, srcOffs: number): Promise<HTMLCanvasElement> {
-    const canvasEl = document.createElement('canvas')
+async function loadGXTexture(data: DataView, srcOffs: number): Promise<HTMLCanvasElement[]> {
     console.log(`data length 0x${data.byteLength.toString(16)} srcOffs 0x${srcOffs.toString(16)}`)
 
     const header = {
         width: data.getUint16(srcOffs + 0xa),
         height: data.getUint16(srcOffs + 0xc),
+        levels: data.getUint16(srcOffs + 0x1c) + 1, 
         format: data.getUint8(srcOffs + 0x16),
     }
     console.log(`gx texture header: ${jsonify(header)}`)
 
-    canvasEl.width = header.width
-    canvasEl.height = header.height
 
-    const ctx = canvasEl.getContext('2d')!
     const dataOffset = srcOffs + 0x60
-    const texData = sliceDataView(data, dataOffset)
+    const texData = subarrayData(data, dataOffset)
     const textureInput: TextureInputGX = {
         name: 'Texture',
         width: header.width,
         height: header.height,
         format: header.format,
-        mipCount: 1,
+        mipCount: header.levels,
         data: new ArrayBufferSlice(texData.buffer, texData.byteOffset, texData.byteLength)
     }
-    const decodedTexture = await decodeTexture(textureInput)
-    const imageData = new ImageData(new Uint8ClampedArray(decodedTexture.pixels.buffer), header.width, header.height)
+    const mipChain = calcMipChain(textureInput, header.levels);
 
-    ctx.putImageData(imageData, 0, 0)
+    const canvases: HTMLCanvasElement[] = []
+    for (let i = 0; i < mipChain.mipLevels.length; i++) {
+        const canvasEl = document.createElement('canvas')
+        canvasEl.width = mipChain.mipLevels[i].width
+        canvasEl.height = mipChain.mipLevels[i].height
+        const ctx = canvasEl.getContext('2d')!
+        const decodedTexture = await decodeTexture(mipChain.mipLevels[i])
+        const imageData = new ImageData(new Uint8ClampedArray(decodedTexture.pixels.buffer),
+            mipChain.mipLevels[i].width, mipChain.mipLevels[i].height)
+        ctx.putImageData(imageData, 0, 0)
+        canvases.push(canvasEl)
+    }
 
-    return canvasEl
+    return canvases
 }
 
 function loadRes(data: DataView, srcOffs: number): DataView {
@@ -386,9 +398,15 @@ async function openGXTextures() {
         if (isValidTextureTabValue(tabValue)) {
             const srcOffs = (tabValue & 0x00FFFFFF) * 2
             try {
+                const pEl = document.createElement('p')
+                texturesEl.appendChild(pEl)
                 const uncomp = loadRes(texBin, srcOffs)
-                const canvasEl = await loadGXTexture(uncomp, 0)
-                texturesEl.appendChild(canvasEl)
+                const canvasEls = await loadGXTexture(uncomp, 0)
+                for (let i = 0; i < canvasEls.length; i++) {
+                    pEl.appendChild(canvasEls[i])
+                }
+                const aEl = makeDownloadLink(uncomp, `tex${tabValue.toString(16)}.bin`, `Download`)
+                pEl.appendChild(aEl)
             } catch (e) {
                 console.log(`Skipping texture at 0x${srcOffs.toString(16)} due to exception:`)
                 console.error(e)
