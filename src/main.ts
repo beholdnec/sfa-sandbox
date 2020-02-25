@@ -388,6 +388,7 @@ async function openGXTextures() {
     const texturesEl = document.getElementById('textures')!
     let done = false
     let tabOffs = 0
+    let texNum = 0;
     while (!done) {
         const tabValue = texTab.getUint32(tabOffs)
         tabOffs += 4
@@ -400,6 +401,7 @@ async function openGXTextures() {
             try {
                 const pEl = document.createElement('p')
                 texturesEl.appendChild(pEl)
+                pEl.append(`#${texNum}`);
                 const uncomp = loadRes(texBin, srcOffs)
                 const canvasEls = await loadGXTexture(uncomp, 0)
                 for (let i = 0; i < canvasEls.length; i++) {
@@ -412,6 +414,8 @@ async function openGXTextures() {
                 console.error(e)
             }
         }
+
+        texNum++;
     }
 }
 
