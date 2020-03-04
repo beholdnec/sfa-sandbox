@@ -428,3 +428,46 @@ const gxTexBinEl = <HTMLInputElement>document.getElementById('gx-tex-bin')!
 gxTexBinEl.onchange = async function (event) {
     await openGXTextures()
 }
+
+function plot(imageData: ImageData, x: number, y: number, r: number, g: number, b: number, a: number) {
+    const pixels = new Uint8Array(imageData.data.buffer)
+    const idx = 4 * (y * imageData.width + x)
+    pixels[idx] = r
+    pixels[idx + 1] = g
+    pixels[idx + 2] = b
+    pixels[idx + 3] = a
+}
+
+function generateWarpyTexture(): HTMLCanvasElement {
+    const canvasEl = document.createElement('canvas')
+
+    const width = 64
+    const height = 64
+
+    canvasEl.width = width
+    canvasEl.height = height
+
+    const ctx = canvasEl.getContext('2d')!
+    const imageData = ctx.createImageData(width, height)
+
+    let X_MUL = 0.39275 // Approximately pi / 8
+    let Y_MUL = 0.0981875 // Approximately pi / 32
+    for (let y = 0; y < height; y++) {
+        let yAngle = Y_MUL * y
+        for (let x = 0; x < width; x++) {
+            let xAngle = X_MUL * x
+            let iFactor = Math.cos(0.5 * Math.sin(xAngle) + yAngle)
+            let aFactor = Math.cos(X_MUL * x * xAngle)
+            let I = 127 * iFactor + 127
+            let A = 127 * iFactor * aFactor + 127
+            plot(imageData, y, x, I, I, I, 0xff)
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+
+    return canvasEl
+}
+
+const warpyCanvas = generateWarpyTexture()
+document.getElementById('textures')!.appendChild(warpyCanvas)
