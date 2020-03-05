@@ -469,5 +469,58 @@ function generateWarpyTexture(): HTMLCanvasElement {
     return canvasEl
 }
 
+function generateWaterRelatedTexture(): HTMLCanvasElement {
+    const canvasEl = document.createElement('canvas')
+
+    const width = 128
+    const height = 128
+
+    canvasEl.width = width
+    canvasEl.height = height
+
+    const ctx = canvasEl.getContext('2d')!
+    const imageData = ctx.createImageData(width, height)
+
+    for (let y = 0; y < height; y++) {
+        let fy = (y - 64) / 64
+        for (let x = 0; x < width; x++) {
+            let fx = (x - 64) / 64
+            let dist = fx * fx + fy * fy
+            if (0.0 < dist) {
+                let dVar34 = 1 / Math.sqrt(dist)
+                dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
+                dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
+                dist = dist * 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
+            }
+            if (dist < 0.25 || 0.75 < dist) {
+                dist = 0.0
+            } else {
+                let fVar10 = 2.0 * (dist - 0.25)
+                if (fVar10 <= 0.5) {
+                    fVar10 = 0.5 - fVar10
+                } else {
+                    fVar10 = fVar10 - 0.5
+                }
+                dist = -(2.0 * fVar10 - 1.0)
+                if (0.0 < dist) {
+                    let dVar34 = 1 / Math.sqrt(dist)
+                    dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
+                    dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
+                    dist = (dist * 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0))
+                }
+            }
+            let I = 16 * dist
+            plot(imageData, y, x, I, I, I, 0xff)
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+
+    return canvasEl
+}
+
 const warpyCanvas = generateWarpyTexture()
 document.getElementById('textures')!.appendChild(warpyCanvas)
+
+const waterCanvas = generateWaterRelatedTexture()
+document.getElementById('textures')!.appendChild(waterCanvas)
