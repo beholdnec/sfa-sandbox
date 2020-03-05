@@ -485,31 +485,22 @@ function generateWaterRelatedTexture(): HTMLCanvasElement {
         let fy = (y - 64) / 64
         for (let x = 0; x < width; x++) {
             let fx = (x - 64) / 64
-            let dist = fx * fx + fy * fy
-            if (0.0 < dist) {
-                let dVar34 = 1 / Math.sqrt(dist)
-                dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
-                dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
-                dist = dist * 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
-            }
+            let dist = Math.hypot(fx, fy);
             if (dist < 0.25 || 0.75 < dist) {
                 dist = 0.0
             } else {
-                let fVar10 = 2.0 * (dist - 0.25)
-                if (fVar10 <= 0.5) {
-                    fVar10 = 0.5 - fVar10
+                let f = 2.0 * (dist - 0.25)
+                if (f <= 0.5) {
+                    f = 0.5 - f
                 } else {
-                    fVar10 = fVar10 - 0.5
+                    f = f - 0.5
                 }
-                dist = -(2.0 * fVar10 - 1.0)
+                dist = -(2.0 * f - 1.0)
                 if (0.0 < dist) {
-                    let dVar34 = 1 / Math.sqrt(dist)
-                    dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
-                    dVar34 = 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0)
-                    dist = (dist * 0.5 * dVar34 * -(dist * dVar34 * dVar34 - 3.0))
+                    dist = Math.sqrt(dist)
                 }
             }
-            let I = 16 * dist
+            let I = /*16*/ 255 * dist
             plot(imageData, y, x, I, I, I, 0xff)
         }
     }
