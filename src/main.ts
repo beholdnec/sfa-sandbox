@@ -515,3 +515,99 @@ document.getElementById('textures')!.appendChild(warpyCanvas)
 
 const waterCanvas = generateWaterRelatedTexture()
 document.getElementById('textures')!.appendChild(waterCanvas)
+
+function interpS16(value: number): number {
+    const u16 = new Uint16Array(1);
+    const s16 = new Int16Array(u16.buffer);
+    u16[0] = value & 0xffff;
+    return s16[0];
+}
+
+async function openAnimcurves() {
+    if (animcurvesTabEl.files!.length <= 0 || animcurvesBinEl.files!.length <= 0) {
+        return
+    }
+
+    console.log(`Loading ANIMCURVES...`)
+
+    const tab = await readBlobAsync(animcurvesTabEl.files![0])
+    const bin = await readBlobAsync(animcurvesBinEl.files![0])
+
+    const animcurvesEl = document.getElementById('animcurves')!;
+
+    let tabOffs = 0;
+    let i = 0;
+    while (tabOffs < tab.byteLength) {
+        const numEvents = tab.getUint16(tabOffs + 0x2);
+        let binOffs = tab.getUint32(tabOffs + 0x4);
+
+        const pEl = document.createElement('p');
+        animcurvesEl.append(pEl);
+
+        const hEl = document.createElement('h3');
+        pEl.append(hEl);
+        hEl.append(`Animation #${i}`);
+
+        const origBinOffs = binOffs;
+        for (; binOffs < origBinOffs + numEvents * 4; binOffs += 0x4) {
+            const evpEl = document.createElement('p');
+            pEl.appendChild(evpEl);
+
+            const event = bin.getUint32(binOffs);
+            const eventCode = event >>> 24;
+            const frames = (event >>> 16) & 0xff;
+            const param = event & 0xffff;
+            switch (eventCode) {
+            case 0: {
+                const time = interpS16(param);
+                evpEl.append(`Wait until frame ${time}`);
+                break;
+            }
+            case 0xff: {
+                const totalTime = interpS16(param);
+                evpEl.append(`Set total time ${totalTime}`);
+                break;
+            }
+            case 0x2: {
+                evpEl.append(`Start animation ${param}; frames ${frames}`);
+                break;
+            }
+            case 0x3: {
+                evpEl.append(`Set current object ${param}; frames ${frames}`);
+                break;
+            }
+            case 0xb: {
+                evpEl.append(`Schedule ${param} subevents; frames ${frames}`);
+                for (let j = 0; j < param; j++) {
+                    binOffs += 0x4;
+
+                    const subevent = bin.getUint32(binOffs);
+                    const op = subevent & 0x3f;
+                    const subop = (subevent >>> 6);
+
+                    const subEl = document.createElement('p');
+                    evpEl.append(subEl);
+                    subEl.append(`Subevent #${j}: 0x${subevent.toString(16)} (op 0x${op.toString(16)} subop 0x${subop.toString(16)})`);
+                }
+                break;
+            }
+            default:
+                evpEl.append(`Unknown event code 0x${eventCode.toString(16)}; ${frames} frames; param 0x${param.toString(16)}`);
+                break;
+            }
+        }
+
+        tabOffs += 0x8;
+        i++;
+    }
+}
+
+const animcurvesTabEl = <HTMLInputElement>document.getElementById('animcurves-tab')!
+animcurvesTabEl.onchange = async function (event) {
+    await openAnimcurves()
+}
+
+const animcurvesBinEl = <HTMLInputElement>document.getElementById('animcurves-bin')!
+animcurvesBinEl.onchange = async function (event) {
+    await openAnimcurves()
+}
