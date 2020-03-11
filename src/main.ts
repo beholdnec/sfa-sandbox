@@ -523,6 +523,12 @@ function interpS16(value: number): number {
     return s16[0];
 }
 
+function getInfoForOp6(code: number): string {
+    const subop = code & 0xff;
+    const param = (code >> 8) & 0xff;
+    return `subop 0x${subop.toString(16)} param 0x${param.toString(16)}`;
+}
+
 async function openAnimcurves() {
     if (animcurvesTabEl.files!.length <= 0 || animcurvesBinEl.files!.length <= 0) {
         return
@@ -583,11 +589,17 @@ async function openAnimcurves() {
 
                     const subevent = bin.getUint32(binOffs);
                     const op = subevent & 0x3f;
-                    const subop = (subevent >>> 6);
+                    const subop = (subevent >>> 6) & 0x3ff;
+                    const param = (subevent >>> 16) & 0xffff;
 
                     const subEl = document.createElement('p');
                     evpEl.append(subEl);
-                    subEl.append(`Subevent #${j}: 0x${subevent.toString(16)} (op 0x${op.toString(16)} subop 0x${subop.toString(16)})`);
+                    let text;
+                    text = `Subevent #${j}: 0x${subevent.toString(16)} (op 0x${op.toString(16)})`
+                    if (op === 6) {
+                        text += ` (${getInfoForOp6(subop | (param << 8))})`;
+                    }
+                    subEl.append(text);
                 }
                 break;
             }
