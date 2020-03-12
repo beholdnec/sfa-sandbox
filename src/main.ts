@@ -570,8 +570,8 @@ async function openAnimcurves() {
                 break;
             }
             case 0xff: {
-                const totalTime = interpS16(param);
-                evpEl.append(`Set total time ${totalTime}`);
+                const duration = interpS16(param);
+                evpEl.append(`Set duration ${duration}`);
                 break;
             }
             case 0x2: {
@@ -622,4 +622,64 @@ animcurvesTabEl.onchange = async function (event) {
 const animcurvesBinEl = <HTMLInputElement>document.getElementById('animcurves-bin')!
 animcurvesBinEl.onchange = async function (event) {
     await openAnimcurves()
+}
+
+async function openObjseq() {
+    if (objseqTabEl.files!.length <= 0 || objseqBinEl.files!.length <= 0) {
+        return
+    }
+
+    console.log(`Loading OBJSEQ...`)
+
+    const tab = await readBlobAsync(objseqTabEl.files![0])
+    const bin = await readBlobAsync(objseqBinEl.files![0])
+
+    const objseqEl = document.getElementById('objseq')!;
+
+    let done = false;
+    let i = 0;
+    while (!done) {
+        const startIndex = tab.getUint16(i * 2);
+        const endIndex = tab.getUint16((i + 1) * 2);
+        let count;
+        if (endIndex === 0xffff) {
+            done = true;
+            count = (bin.byteLength / 0x8) - startIndex;
+        } else {
+            count = endIndex - startIndex;
+        }
+
+        const pEl = document.createElement('p');
+        objseqEl.append(pEl);
+
+        const hEl = document.createElement('h3');
+        pEl.append(hEl);
+        hEl.append(`Object Sequence #${i}`);
+
+        let offs = startIndex * 0x8;
+        for (let j = 0; j < count; j++) {
+            const fields = {
+                objId: bin.getUint32(offs),
+                flags: bin.getUint16(offs + 0x4),
+                objType: bin.getUint16(offs + 0x6),
+            };
+            const text = `Object #${j}: ID 0x${fields.objId.toString(16)}, flags 0x${fields.flags.toString(16)}, type 0x${fields.objType.toString(16)}`;
+            const subp = document.createElement('p');
+            pEl.appendChild(subp);
+            subp.append(text);
+            offs += 0x8;
+        }
+
+        i++;
+    }
+}
+
+const objseqTabEl = <HTMLInputElement>document.getElementById('objseq-tab')!
+objseqTabEl.onchange = async function (event) {
+    await openObjseq()
+}
+
+const objseqBinEl = <HTMLInputElement>document.getElementById('objseq-bin')!
+objseqBinEl.onchange = async function (event) {
+    await openObjseq()
 }
