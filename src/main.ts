@@ -316,7 +316,7 @@ n64TexBinEl.onchange = async function (event) {
     await openN64Textures()
 }
 
-async function loadGXTexture(data: DataView, srcOffs: number): Promise<HTMLCanvasElement[]> {
+async function loadGXTexture(data: DataView, srcOffs: number, isAncient: boolean): Promise<HTMLCanvasElement[]> {
     console.log(`data length 0x${data.byteLength.toString(16)} srcOffs 0x${srcOffs.toString(16)}`)
 
     const header = {
@@ -328,7 +328,7 @@ async function loadGXTexture(data: DataView, srcOffs: number): Promise<HTMLCanva
     console.log(`gx texture header: ${jsonify(header)}`)
 
 
-    const dataOffset = srcOffs + 0x60
+    const dataOffset = srcOffs + (isAncient ? 0x20 : 0x60)
     const texData = subarrayData(data, dataOffset)
     const textureInput: TextureInputGX = {
         name: 'Texture',
@@ -403,7 +403,7 @@ async function openGXTextures() {
                 texturesEl.appendChild(pEl)
                 pEl.append(`#${texNum}`);
                 const uncomp = loadRes(texBin, srcOffs)
-                const canvasEls = await loadGXTexture(uncomp, 0)
+                const canvasEls = await loadGXTexture(uncomp, 0, true)
                 for (let i = 0; i < canvasEls.length; i++) {
                     pEl.appendChild(canvasEls[i])
                 }
