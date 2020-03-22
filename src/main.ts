@@ -605,6 +605,119 @@ function generateFooTexture(): HTMLCanvasElement {
     return canvasEl
 }
 
+interface Hair {
+    numLayers: number;
+    x: number;
+    y: number;
+    field_0xc: number;
+    field_0x10: number;
+}
+
+function evaluateHair(x: number, y: number, layer: number, hairs: Hair[]): [number, number] {
+    let dVar5 = 0;
+    let dVar6 = 0;
+
+    for (let i = 0; i < hairs.length; i++) {
+        const hair = hairs[i];
+
+        if (layer < hair.numLayers) {
+            let dVar8 = 0.25 + (hair.numLayers - layer) / hair.numLayers;
+            if (dVar8 > 1) {
+                dVar8 = 1;
+            }
+            if (dVar8 > 0) {
+                dVar8 = Math.sqrt(dVar8);
+            }
+            let fVar2 = Math.abs(hair.x - x);
+            let fVar1 = Math.abs(1 + hair.x - x);
+            if (fVar2 > fVar1) {
+                fVar2 = fVar1;
+            }
+            fVar1 = Math.abs(hair.x - 1 - x)
+            if (fVar2 > fVar1) {
+                fVar2 = fVar1;
+            }
+
+            let dVar7 = hair.y;
+            fVar1 = 0;
+            if (dVar7 < y) {
+                fVar1 = y - dVar7;
+            }
+            let fVar4 = Math.abs(1 + dVar7 - y);
+            let fVar3 = Math.abs(dVar7 - y);
+            if (fVar4 < Math.abs(dVar7 - y)) {
+                fVar3 = fVar4;
+                fVar1 = 0;
+            }
+            dVar7 = fVar1;
+            let dVar9 = hair.y - 1;
+            fVar1 = Math.abs(dVar9 - y);
+            if ((fVar1 < fVar3) && (fVar3 = fVar1, dVar9 < y)) {
+                dVar7 = y - dVar9;
+            }
+            dVar9 = Math.sqrt(fVar2 * fVar2 + fVar3 * fVar3);
+            let dVar10 = Math.sqrt(layer / hair.numLayers);
+            dVar10 = -(dVar10 * (hair.field_0xc - hair.field_0x10) - hair.field_0xc);
+            if (dVar9 <= dVar10) {
+                dVar9 = 1 - dVar9 / dVar10;
+                if (dVar9 > 0) {
+                    dVar9 = Math.sqrt(dVar9);
+                }
+                dVar5 = dVar8 * dVar9 + dVar5;
+                dVar6 = 0.5 * -(layer / 16 - 1) + dVar6 + dVar7 / dVar10;
+            }
+        }
+    }
+
+    if (dVar5 > 1) {
+        dVar5 = 1;
+    }
+    if (dVar6 > 1) {
+        dVar6 = 1;
+    }
+    return [dVar6 / 8 + 7/16, dVar5];
+}
+
+function random(lo: number, hi: number) {
+    return lo + (hi - lo) * Math.random();
+}
+
+function generateFurMap(layer: number): HTMLCanvasElement {
+    const canvasEl = document.createElement('canvas')
+
+    const width = 64
+    const height = 64
+
+    canvasEl.width = width
+    canvasEl.height = height
+
+    const ctx = canvasEl.getContext('2d')!
+    const imageData = ctx.createImageData(width, height)
+
+    const hairs: Hair[] = [];
+    for (let i = 0; i < 50; i++) {
+        let rand = random(5, 10);
+        const hair = { numLayers: random(8, 16), x: 0.001 * random(0, 999), y: 0.001 * random(0, 999), field_0xc: 0.01 * rand, field_0x10: 0 };
+        hair.field_0x10 = hair.field_0xc * 0.01 * random(20, 50);
+        hairs.push(hair);
+    }
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const [I_, A_] = evaluateHair(x / 64, y / 64, layer, hairs);
+            const I = I_ * 0xff
+            // const I = A_ * 0xff
+            //const A = A_ * 0xff
+            const A = 0xff
+            plot(imageData, x, y, I, I, I, A)
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+
+    return canvasEl
+}
+
 const warpyCanvas = generateWarpyTexture()
 document.getElementById('textures')!.appendChild(warpyCanvas)
 
@@ -613,6 +726,11 @@ document.getElementById('textures')!.appendChild(waterCanvas)
 
 const fooCanvas = generateFooTexture()
 document.getElementById('textures')!.appendChild(fooCanvas)
+
+for (let i = 0; i < 16; i++) {
+    const furMapCanvas = generateFurMap(i)
+    document.getElementById('textures')!.appendChild(furMapCanvas)
+}
 
 function interpS16(value: number): number {
     const u16 = new Uint16Array(1);
