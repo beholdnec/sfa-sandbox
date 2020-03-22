@@ -397,20 +397,34 @@ async function openGXTextures() {
         }
 
         if (isValidTextureTabValue(tabValue)) {
-            const srcOffs = (tabValue & 0x00FFFFFF) * 2
+            const arrayLength = (tabValue >>> 24) & 0x3f
+            const binOffs = (tabValue & 0x00FFFFFF) * 2
             try {
                 const pEl = document.createElement('p')
                 texturesEl.appendChild(pEl)
                 pEl.append(`#${texNum}`);
-                const uncomp = loadRes(texBin, srcOffs)
-                const canvasEls = await loadGXTexture(uncomp, 0, false)
-                for (let i = 0; i < canvasEls.length; i++) {
-                    pEl.appendChild(canvasEls[i])
+                if (arrayLength === 1) {
+                    const uncomp = loadRes(texBin, binOffs)
+                    const canvasEls = await loadGXTexture(uncomp, 0, false)
+                    for (let i = 0; i < canvasEls.length; i++) {
+                        pEl.appendChild(canvasEls[i])
+                    }
+                    const aEl = makeDownloadLink(uncomp, `tex${tabValue.toString(16)}.bin`, `Download`)
+                    pEl.appendChild(aEl)
+                } else {
+                    for (let i = 0; i < arrayLength; i++) {
+                        const texOffs = texBin.getUint32(binOffs + i * 4)
+                        const uncomp = loadRes(texBin, binOffs + texOffs)
+                        const canvasEls = await loadGXTexture(uncomp, 0, false)
+                        for (let i = 0; i < canvasEls.length; i++) {
+                            pEl.appendChild(canvasEls[i])
+                        }
+                        const aEl = makeDownloadLink(uncomp, `tex${tabValue.toString(16)}.bin`, `Download`)
+                        pEl.appendChild(aEl)
+                    }
                 }
-                const aEl = makeDownloadLink(uncomp, `tex${tabValue.toString(16)}.bin`, `Download`)
-                pEl.appendChild(aEl)
             } catch (e) {
-                console.log(`Skipping texture at 0x${srcOffs.toString(16)} due to exception:`)
+                console.log(`Skipping texture at 0x${binOffs.toString(16)} due to exception:`)
                 console.error(e)
             }
         }
