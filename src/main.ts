@@ -403,7 +403,7 @@ async function openGXTextures() {
                 texturesEl.appendChild(pEl)
                 pEl.append(`#${texNum}`);
                 const uncomp = loadRes(texBin, srcOffs)
-                const canvasEls = await loadGXTexture(uncomp, 0, true)
+                const canvasEls = await loadGXTexture(uncomp, 0, false)
                 for (let i = 0; i < canvasEls.length; i++) {
                     pEl.appendChild(canvasEls[i])
                 }
@@ -510,11 +510,95 @@ function generateWaterRelatedTexture(): HTMLCanvasElement {
     return canvasEl
 }
 
+function generateFooTexture(): HTMLCanvasElement {
+    const canvasEl = document.createElement('canvas')
+
+    const width = 64
+    const height = 64
+
+    canvasEl.width = width
+    canvasEl.height = height
+
+    const ctx = canvasEl.getContext('2d')!
+    const imageData = ctx.createImageData(width, height)
+
+    for (let y = 0; y < height; y++) {
+        const dVar30 = (y - 32) / 32
+        const dVar23 = (y + 1 - 32) / 32
+        for (let x = 0; x < width; x++) {
+            let fVar3 = (x - 32) / 32
+            let dVar27 = fVar3 * fVar3
+
+            let dVar28 = dVar30 * dVar30 + dVar27
+            if (dVar28 > 0) {
+                let dVar24 = 1 / Math.sqrt(dVar28)
+                dVar24 = 0.5 * dVar24 * -(dVar28 * dVar24 * dVar24 - 3.0)
+                dVar24 = 0.5 * dVar24 * -(dVar28 * dVar24 * dVar24 - 3.0)
+                dVar28 = dVar28 * 0.5 * dVar24 * -(dVar28 * dVar24 * dVar24 - 3.0)
+            }
+            
+            dVar27 = (dVar23 * dVar23 + dVar27)
+            if (dVar27 > 0) {
+                let dVar24 = 1 / Math.sqrt(dVar27)
+                dVar24 = 0.5 * dVar24 * -(dVar27 * dVar24 * dVar24 - 3.0)
+                dVar24 = 0.5 * dVar24 * -(dVar27 * dVar24 * dVar24 - 3.0)
+                dVar27 = dVar27 * 0.5 * dVar24 * -(dVar27 * dVar24 * dVar24 - 3.0)
+            }
+
+            fVar3 = (x + 1 - 32) / 32
+            let dVar24 = dVar30 * dVar30 + (fVar3 * fVar3)
+            if (dVar24 > 0) {
+                let dVar25 = 1 / Math.sqrt(dVar24)
+                dVar25 = 0.5 * dVar25 * -(dVar24 * dVar25 * dVar25 - 3.0)
+                dVar25 = 0.5 * dVar25 * -(dVar24 * dVar25 * dVar25 - 3.0)
+                dVar24 = dVar24 * 0.5 * dVar25 * -(dVar24 * dVar25 * dVar25 - 3.0)
+            }
+
+            let dVar25 = Math.cos(18.852 * dVar28) // approximately PI * 6
+            dVar25 = -dVar25
+            dVar27 = Math.cos(18.852 * dVar27)
+            dVar27 = -dVar27
+            dVar24 = Math.cos(18.852 * dVar24)
+            if (dVar28 >= 1.0) {
+                dVar28 = 0
+            } else {
+                dVar28 = 1.0 - dVar28
+                if (dVar28 > 0) {
+                    let dVar29 = 1 / Math.sqrt(dVar28)
+                    dVar29 = 0.5 * dVar29 * -(dVar28 * dVar29 * dVar29 - 3.0)
+                    dVar29 = 0.5 * dVar29 * -(dVar28 * dVar29 * dVar29 - 3.0)
+                    dVar28 = dVar28 * 0.5 * dVar29 * -(dVar28 * dVar29 * dVar29 - 3.0)
+                }
+            }
+
+            let dVar29 = 32 * dVar28
+            if (15 < (32 * dVar28)) {
+                dVar29 = 15
+            }
+
+            const dVar33 = 0.5 // TODO
+            const dVar39 = 1.0 / dVar33
+            const R = (((dVar39 * (127 * (dVar25 - -dVar24)) + 127) / 16) & 0xf) / 15 * 255
+            const G = ((dVar29) & 0xf) / 15 * 255
+            const B = (((dVar39 * (127 * (dVar25 - dVar27)) + 127) / 32) & 0x7) / 7 * 255
+            const A = 255
+            plot(imageData, x, y, R, G, B, A)
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+
+    return canvasEl
+}
+
 const warpyCanvas = generateWarpyTexture()
 document.getElementById('textures')!.appendChild(warpyCanvas)
 
 const waterCanvas = generateWaterRelatedTexture()
 document.getElementById('textures')!.appendChild(waterCanvas)
+
+const fooCanvas = generateFooTexture()
+document.getElementById('textures')!.appendChild(fooCanvas)
 
 function interpS16(value: number): number {
     const u16 = new Uint16Array(1);
