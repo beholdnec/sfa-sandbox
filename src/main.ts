@@ -682,7 +682,7 @@ function random(lo: number, hi: number) {
     return lo + (hi - lo) * Math.random();
 }
 
-function generateFurMap(layer: number): HTMLCanvasElement {
+function generateFurMap(layer: number, hairs: Hair[]): HTMLCanvasElement {
     const canvasEl = document.createElement('canvas')
 
     const width = 64
@@ -693,14 +693,6 @@ function generateFurMap(layer: number): HTMLCanvasElement {
 
     const ctx = canvasEl.getContext('2d')!
     const imageData = ctx.createImageData(width, height)
-
-    const hairs: Hair[] = [];
-    for (let i = 0; i < 50; i++) {
-        let rand = random(5, 10);
-        const hair = { numLayers: random(8, 16), x: 0.001 * random(0, 999), y: 0.001 * random(0, 999), field_0xc: 0.01 * rand, field_0x10: 0 };
-        hair.field_0x10 = hair.field_0xc * 0.01 * random(20, 50);
-        hairs.push(hair);
-    }
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
@@ -727,10 +719,74 @@ document.getElementById('textures')!.appendChild(waterCanvas)
 const fooCanvas = generateFooTexture()
 document.getElementById('textures')!.appendChild(fooCanvas)
 
-for (let i = 0; i < 16; i++) {
-    const furMapCanvas = generateFurMap(i)
-    document.getElementById('textures')!.appendChild(furMapCanvas)
+function generateFurMaps() {
+    const hairs: Hair[] = [];
+
+    let try_ = 0;
+    for (let i = 0; i < 50 && try_ < 10000; i++) {
+        const newHair = {
+            numLayers: random(8, 16),
+            x: 0,
+            y: 0,
+            field_0xc: 0.01 * random(5, 10),
+            field_0x10: 0,
+        };
+        newHair.field_0x10 = newHair.field_0xc * 0.01 * random(20, 50);
+
+        let done = false;
+        do {
+            newHair.x = 0.001 * random(0, 999);
+            newHair.y = 0.001 * random(0, 999);
+
+            done = false;
+            let j = 0;
+            while (j < i && !done) {
+                const cmpHair = hairs[j];
+
+                let fVar1 = Math.abs(newHair.x - cmpHair.x);
+                let fVar2 = Math.abs(1 + newHair.x - cmpHair.x);
+                if (fVar2 < fVar1) {
+                    fVar1 = fVar2;
+                }
+                fVar2 = Math.abs(newHair.x - 1 - cmpHair.x);
+                if (fVar2 < fVar1) {
+                    fVar1 = fVar2;
+                }
+                fVar2 = Math.abs(newHair.y - cmpHair.y);
+                let fVar3 = Math.abs(1 + newHair.y - cmpHair.y);
+                if (fVar3 < fVar2) {
+                    fVar2 = fVar3;
+                }
+                fVar3 = Math.abs(newHair.y - 1 - cmpHair.y);
+                if (fVar3 < fVar2) {
+                    fVar2 = fVar3;
+                }
+
+                let dVar11 = Math.sqrt(fVar1 * fVar1 + fVar2 * fVar2);
+                if (dVar11 < (newHair.field_0x10 + cmpHair.field_0xc)) {
+                    done = true;
+                }
+
+                j++;
+            }
+
+            try_++;
+        } while (done && try_ < 10000);
+
+        if (try_ >= 10000) {
+            console.warn(`reached 10,000 tries`);
+        }
+
+        hairs.push(newHair);
+    }
+
+    for (let i = 0; i < 16; i++) {
+        const furMapCanvas = generateFurMap(i, hairs)
+        document.getElementById('textures')!.appendChild(furMapCanvas)
+    }
 }
+
+generateFurMaps();
 
 function interpS16(value: number): number {
     const u16 = new Uint16Array(1);
