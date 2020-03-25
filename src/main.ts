@@ -464,17 +464,17 @@ function generateWarpyTexture(): HTMLCanvasElement {
     const ctx = canvasEl.getContext('2d')!
     const imageData = ctx.createImageData(width, height)
 
-    let X_MUL = 0.39275 // Approximately pi / 8
-    let Y_MUL = 0.0981875 // Approximately pi / 32
+    const X_MUL = 0.39275; // Approximately pi / 8
+    const Y_MUL = 0.0981875; // Approximately pi / 32
     for (let y = 0; y < height; y++) {
         let yAngle = Y_MUL * y
         for (let x = 0; x < width; x++) {
-            let xAngle = X_MUL * x
-            let iFactor = Math.cos(0.5 * Math.sin(xAngle) + yAngle)
-            let aFactor = Math.cos(X_MUL * x * xAngle)
-            let I = 127 * iFactor + 127
-            let A = 127 * iFactor * aFactor + 127
-            plot(imageData, y, x, I, I, I, 0xff)
+            const xAngle = X_MUL * x;
+            const iFactor = Math.cos(0.5 * Math.sin(xAngle) + yAngle);
+            const aFactor = Math.cos(xAngle);
+            const I = 127 * iFactor + 127;
+            const A = 127 * iFactor * aFactor + 127;
+            plot(imageData, y, x, A, A, A, 0xff);
         }
     }
 
